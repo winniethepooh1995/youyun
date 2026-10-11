@@ -89,3 +89,43 @@ test('mobile shows search results before the optional summary panel', async ({ p
   const summary = await page.getByRole('complementary', { name: 'AI 整理' }).boundingBox();
   expect(results!.y).toBeLessThan(summary!.y);
 });
+
+test('meaningful secondary text meets normal-text contrast requirements', async ({ page }) => {
+  await page.goto('/');
+  const selectors = ['.hero-description', '.result-excerpt', '.result-meta time', '.result-meta > span:first-child', '.result-footer > span:first-child', '.topic-pill', '.mock-notice p', '.summary-disclosure', '.summary-description', '.summary-empty > p', '.summary-empty h3', '.summary-features', '.prototype-badge', '.summarize-button', '.source-tabs button', '.sort-label', '.result-count'];
+  const measure = (selectors: string[]) => page.evaluate(selectors => {
+    const rgb = (value: string) => value.match(/[\d.]+/g)!.map(Number);
+    const luminance = (color: number[]) => color.slice(0, 3).map(value => {
+      const channel = value / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    return selectors.flatMap(selector => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error('Missing contrast target: ' + selector);
+      const style = getComputedStyle(element);
+      let ancestor: Element | null = element;
+      let background = [255, 255, 255];
+      while (ancestor) {
+        const candidate = rgb(getComputedStyle(ancestor).backgroundColor);
+        if (candidate.length === 3 || candidate[3] === 1) { background = candidate; break; }
+        ancestor = ancestor.parentElement;
+      }
+      const foreground = luminance(rgb(style.color));
+      const backdrop = luminance(background);
+      return [{ selector, ratio: (Math.max(foreground, backdrop) + 0.05) / (Math.min(foreground, backdrop) + 0.05) }];
+    });
+  }, selectors);
+  const measurements = await measure(selectors);
+  await page.getByRole('button', { name: 'AI 整理（模擬）' }).click();
+  measurements.push(...await measure(['.citation', '.summary-footnote', '.summary-items p']));
+  for (const measurement of measurements) expect(measurement.ratio, `${measurement.selector} contrast`).toBeGreaterThanOrEqual(4.5);
+});
+
+test('a pasted long URL query wraps without horizontal scrolling on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('searchbox').fill('https://example.com/documents/longprojectidentifierandrevisionnumber01234567890123456789');
+  await page.getByRole('searchbox').press('Enter');
+  await expect(page.getByText('沒有找到相關資料')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
