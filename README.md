@@ -42,4 +42,4 @@ npm run test:e2e
 - 無登入、後端、資料庫或個人資料持久化。來源連結只開啟本地模擬內容。
 - 正式公司 Outlook／Google Drive 串接、保存資料與 AI 使用方式，需待公司 IT 確認後另行設計。
 
-設計與實作計畫位於 `docs/superpowers/`。本機提交尚未推送至 GitHub。
+設計與實作計畫位於 `docs/superpowers/`。專案已上傳至 GitHub 的 `master` 分支：https://github.com/winniethepooh1995/youyun 。
